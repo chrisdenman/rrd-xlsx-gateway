@@ -1,0 +1,111 @@
+buildscript {
+	apply from: 'repositories.gradle'
+	repositories localRepositories.source as Closure
+	dependencies {
+		classpath "uk.co.ceilingcat:gradle.plugins.SemanticVersionsPlugin:${versions_semantic_versions}"
+	}
+}
+
+plugins {
+	id 'jacoco'
+	id 'maven-publish'
+	id 'org.jetbrains.dokka' version "${versions_dokka}"
+	id 'org.jetbrains.kotlin.jvm' version "${versions_kotlin}"
+	id 'org.jlleitschuh.gradle.ktlint' version "${versions_klint}"
+}
+apply plugin: 'uk.co.ceilingcat.SemanticVersions'
+
+group = 'uk.co.ceilingcat.rrd'
+description = 'Refuse Recycling Dates - Xlsx Input Gateway'
+
+dependencies {
+	implementation "io.arrow-kt:arrow-core:${versions_arrow}"
+    implementation "org.apache.poi:poi-ooxml:${versions_poi}"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:${versions_kotlin}"
+    implementation "uk.co.ceilingcat.rrd:rrd-entities:${versions_rrd_entities}"
+    implementation "uk.co.ceilingcat.rrd:rrd-usecases:${versions_rrd_usecases}"
+
+    testImplementation "org.junit.jupiter:junit-jupiter-api:${versions_junit_jupiter}"
+    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${versions_junit_jupiter}"
+}
+
+compileKotlin { kotlinOptions.jvmTarget = JavaVersion.VERSION_11 as String }
+compileTestKotlin { kotlinOptions.jvmTarget = JavaVersion.VERSION_11 as String }
+
+repositories localRepositories.source as Closure
+
+test {
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+    }
+    useJUnitPlatform()
+
+    reports {
+        junitXml.enabled = true
+        html.enabled = true
+    }
+}
+
+dokkaHtml {
+    dokkaSourceSets {
+        configureEach {
+            jdkVersion.set(11)
+            displayName.set('JVM')
+            includes.from('src/main/kotlin/packages.md')
+            remoteUrl.set(java.net.URL(
+                'https://github.com/chrisdenman/rrd-xlsx-gateway/tree/main/src/main/kotlin'))
+        }
+    }
+}
+
+task dokkaJar(type: Jar, dependsOn: dokkaHtml, group: 'packaging') {
+    getArchiveClassifier().set('javadoc')
+    from javadoc.destinationDir
+}
+
+setProjectVersion.dependsOn patchIncrement
+patchIncrement.onlyIf(new Spec<Task>() {
+    boolean isSatisfiedBy(Task task) {
+        !task.project.hasProperty('isRelease')
+    }
+})
+
+task assembleBundle(group: 'packaging', type: Zip, dependsOn: [jar, dokkaJar]) {
+    setArchiveClassifier('bundle')
+
+    from (project.rootDir) {
+        include 'README.md'
+    }
+
+    from (project.buildDir) {
+        includeEmptyDirs false
+        include 'libs/*.jar'
+        filesMatching 'libs/*.jar', {it.setRelativePath(
+            new RelativePath(true, it.getRelativePath().getLastName()))}
+    }
+
+    setDestinationDirectory(new File(project.buildDir, "libs"))
+}
+
+publishing {
+    repositories localRepositories.destination as Closure
+
+	publications {
+		mavenJava(MavenPublication) {
+			from components.java
+			artifact(kotlinSourcesJar)
+			artifact(dokkaJar)
+			artifact(assembleBundle) {
+				classifier 'bundle'
+				extension 'zip'
+			}
+		}
+	}
+}
+
+setProjectVersion.dependsOn patchIncrement
+[dokkaHtml, compileKotlin].each { it.dependsOn setProjectVersion }
+[ktlintMainSourceSetCheck, ktlintTestSourceSetCheck].each { it.dependsOn ktlintFormat }
+assemble.dependsOn assembleBundle
+check.dependsOn jacocoTestReport
+[jar, dokkaHtml].each { it.dependsOn check }
