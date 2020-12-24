@@ -19,18 +19,48 @@ import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.util.function.Predicate
 
+/**
+ * @param file the directory to search for worksheets in
+ */
 data class WorkSheetsSearchDirectory(val file: File)
+
+/**
+ * @param text the spreadsheet street name to match against
+ */
 data class StreetName(val text: String)
 
+/**
+ * The errors that `XlsxInputGateway.notify(...)` may return, contained in a `Left(.)`
+ */
 sealed class XlsxInputGatewayException : Throwable() {
     object NextUpcomingException : XlsxInputGatewayException()
 }
 
 typealias NextUpcomingError = XlsxInputGatewayException.NextUpcomingException
 
+/**
+ * An input gateway that provides upcoming service details by, examining XLSX formatted spreadsheets.
+ */
 interface XlsxInputGateway : NextUpcomingInputGateway
 
-// @todo check val getters
+/**
+ * Construct a new XLSX input gateway.
+ *
+ *
+ * Service details are produced by searching the `workSheetsSearchDirectory` directory for,
+ * all spreadsheets (by lowercase extension 'xlsx' and regardless of name).
+ *
+ * Each candidate spreadsheet is examined. The next upcoming service's details are returned if found.
+ *
+ *
+ * All spreadsheets (at any depth in the filesystem), under (and including) `workSheetsSearchDirectory` are examined.
+ *
+ * @param currentDate the use case that provides the current date
+ * @param streetName the name of the street to search for
+ * @param workSheetsSearchDirectory the root directory to search for spreadsheets
+ *
+ * @constructor
+ */
 fun createXlsxInputGateway(
     currentDate: CurrentDate,
     streetName: StreetName,
