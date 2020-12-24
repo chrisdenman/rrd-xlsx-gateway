@@ -20,12 +20,12 @@ import java.time.format.DateTimeParseException
 import java.util.function.Predicate
 
 /**
- * @param a directory to search for worksheets in
+ * @param file the directory to search for worksheets in
  */
 data class WorkSheetsSearchDirectory(val file: File)
 
 /**
- * @param the spreadsheet street name to match against
+ * @param text the spreadsheet street name to match against
  */
 data class StreetName(val text: String)
 
@@ -46,9 +46,12 @@ interface XlsxInputGateway : NextUpcomingInputGateway
 /**
  * Construct a new XLSX input gateway.
  *
+ *
  * Service details are produced by searching the `workSheetsSearchDirectory` directory for,
- * all spreadsheets (by extension `xlsx`, regardless of name). Each candidate spreadsheet is examined. The next upcoming
- * service's details are returned if found.
+ * all spreadsheets (by lowercase extension 'xlsx' and regardless of name).
+ *
+ * Each candidate spreadsheet is examined. The next upcoming service's details are returned if found.
+ *
  *
  * All spreadsheets (at any depth in the filesystem), under (and including) `workSheetsSearchDirectory` are examined.
  *
